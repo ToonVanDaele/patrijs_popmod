@@ -1,0 +1,77 @@
+---
+title: "populatiemodel_Roodbergen"
+author: "Toon Van Daele"
+date: "23-1-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(popbio)
+library(boot)
+```
+
+# Populatiemodel Roodbergen
+
+## Algemene beschrijving
+
+- cyclus 1 jaar - tijdstap in het vroege voorjaar
+- enkel hennen (sex ratio at birth 1:1)
+- bird pulse / pre-breeding / census early spring before breeding
+- includes hunting
+
+## Populatieparameters
+
+```{r popparam}
+# Parameterwaarden uit Roodbergen (xxxx)
+b <- 1       # kans op broeden
+n1 <- 0.46   # nestsucces eerste legsel
+u1 <- 12.3   # aantal uitgekomen eieren per eerste legsel
+Sk1 <- 0.4   # overleving van kuikens uit een eerste legsel
+h <- 0.78    # kans op herleg
+nh <- 0.4    # nestsucces herlegsel
+uh <- 9      # aantal uitgekomen eieren per herlegsel
+Skh <- 0.4   # overleving van kuikens uit een herlegsel
+Sai1 <- 0.78 # overleving hen tijdens incubatie 1e legsel
+Saz1 <- 0.8  # overleving hen zomer zonder herlegsel
+Saih <- 1    # overleving hen tijdens incubatie herlegsel
+Sazh <- 0.9  # overleving hen met herlegsel
+Sjw <- 0.68  # overleving juvenielen tijdens winter
+Saw <- 0.68  # overleving adulten tijdens winter
+```
+
+## Populatiematrix (Roodbergen)
+
+```{r pop_elem}
+Pjr <- (Sai1 * ((b * n1 * u1 * Sk1) + Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5
+Sab <- Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)
+```
+
+```{r popmatrix}
+mat_roo <- matrix(c(Pjr,        Pjr,
+                    Sab * Saw,  Sab * Saw),
+                  nrow = 2, ncol = , byrow = TRUE)
+```
+
+
+## Populatiegroei  (lambda)
+
+```{r}
+lambda(mat_roo)
+```
+
+
+## Sensitiviteit en elasticiteit
+
+```{r}
+
+#-> in Roodbergen deterministische aanpak
+
+```
+
+
+
+
+
+

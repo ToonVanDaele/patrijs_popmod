@@ -1,0 +1,217 @@
+---
+title: "Populatiemodel_Bro"
+author: "Toon Van Daele"
+date: "23-1-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(popbio)
+library(boot)
+```
+
+# Model Bro (2000)
+
+### Algemene beschrijving
+
+- cyclus 1 jaar - tijdstap in het vroege voorjaar
+- enkel hennen (sex ratio at birth 1:1)
+- bird pulse / pre-breeding / census early spring before breeding
+- includes hunting
+
+### Populatieparameters
+
+```{r popparam}
+# Parameterwaarden uit Bro (ulm databestand)
+
+# Definitie van de populatiematrix: 
+# Spe1*F1*Sc1*Sah1 ,  Spe2*F2*Sc1*Sah1 
+# Spe1*Sc2*Sah2    ,  Spe2*Sc3*Sah3
+
+# Definition des survie : Chasse Automne Hiver Printemps Ete
+# avec indice 1 pour les jeunes ou subadultes et 2 pour les adultes
+Spe1 <- 0.4
+Spe2 <- 0.45
+Sah1 <- 0.8
+Sah2 <- 0.9
+Sah3 <- 0.85
+Sc1 <- 0.9
+Sc2 <- 0.99
+Sc3 <- 0.95
+S1 <- Sc1 * Sah1
+S2 <- Spe1 * Sc2 * Sah2
+S3 <- Spe2 * Sc3 * Sah3
+
+# Definition de la fecondite : nombre de jeunes par poule d'été. Comprend la
+# taille de ponte à l'éclosion, le tx d'éclosion des ponte et le taux de survie des poussins
+F1 <- 5.1 / 2
+F2 <- 4.4 / 2
+
+# S1 <-         # hen survival rate during laying and incubation of first clutches
+alhpa <- 0.458    # hatching rate of first clutches
+# g <-          # hatching rate of replacement clutches
+
+Hatched1 <- 12.3   # number of hatched eggs in successful first clutches;
+# Hatched2 <-   # number of hatched eggs in successful replacement clutches
+
+Sj <- 0.405
+Sj1 <- Sj       # survival rate of chicks issuing from first clutches to the age of 6 weeks
+Sj2 <- Sj       # survival rate of chicks issuing from replacement clutches to the age of 6 weeks
+
+Sss <-          # Survival rate during spring and summer = hen survival rate during breeding
+
+# beta <-       # renesting rate of hens the first clutch of which failed
+# s2 <-         # survival rate of hens after their first clutch hatched or failed with no renesting
+# S3 <-         # hen survival rate during laying and incubation of replacement clutches
+
+# S4 <-         # hen survival rate after replacement clutch hatched or failed
+# S5 <-         # survival rate during the shooting season (komt niet voor bij roodbergen) # afschot
+S6 <-  0.676    # overwinter survival rate   (saw bij roodbergen)
+
+n1 <- 70  # initial population   (inputfile ulm) 
+n2 <- 30  # initial population   (inputfile ulm)
+```
+
+
+### Populatiematrix
+
+### Elementen van de populatiematrix (Bro)
+
+```{r pop_elem}
+Pjr <- (Sai1 * ((b * n1 * u1 * Sk1) + Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5
+Sab <- Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)
+```
+
+```{r popmatrix}
+mat_roo <- matrix(c(Pjr,        Pjr,
+                    Sab * Saw,  Sab * Saw),
+                  nrow = 2, ncol = , byrow = TRUE)
+```
+
+## Population growth (lambda)
+
+```{r}
+lambda(mat_roo)
+```
+
+
+## Sensitiviteit en elasticiteit
+
+```{r}
+
+-> in Bro op stochastisch model
+-> in Roodbergen?
+
+```
+
+
+
+
+
+## Including stochasticity
+
+### Model Roodbergen
+
+#### Environmental stochasticity
+
+```{r}
+n_boot <- 200   # number of stochastic runs
+env <- rnorm(n = n_boot, mean = 1, sd = 0.2)   # set environment
+#rbeta(n = n_boot, shape1, shape2)
+e_Sjw <- Sjw * env  # survival juveniles
+e_Saw <- Saw * env  # survival adults
+e_Sjw <- ifelse(e_Sjw > 0.99, 0.99, e_Sjw) # tunc to < 0.99
+e_Saw <- ifelse(e_Saw > 0.99, 0.99, e_Saw) # tunc to < 0.99
+e_Sjw <- ifelse(e_Sjw < 0.01, 0.01, e_Sjw) # tunc to > 0.01
+e_Saw <- ifelse(e_Saw > 0.99, 0.99, e_Saw) # tunc to > 0.01
+
+# Het weer bepaald de kuikenoverleving  (reproductie naar juvenielen)
+# strenge winter heeft wel impact op alle klassen
+# -> 
+```
+
+#### Demographic stochasticity
+```{r}
+s_u1 <- rpois(n = n_boot, lambda = u1)  # set first hatching
+s_uh <- rpois(n = n_boot, lambda = uh)  # set second hatching
+
+s_Sjw <- rbinom(n = n_boot, size = 100, prob = e_Sjw) / 100  # survival juveniles
+s_Saw <- rbinom(n = n_boot, size = 100, prob = e_Saw) / 100  # survival adults
+```
+
+#### Stochastic population matrix
+
+```{r}
+s_Pjr <- (Sai1 * ((b * n1 * s_u1 * Sk1) + Saih * (1 - n1) * h * nh * s_uh * Skh) * s_Sjw) * 0.5
+s_S   <- (Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)) * s_Saw
+
+test_matrix <- matrix(c(s_Pjr, s_S, s_Pjr, s_S), ncol = n_boot, byrow = TRUE)
+```
+
+#### Stochastic growth rate
+
+```{r}
+log_lambda <- stoch.growth.rate(test_matrix, prob = NULL, maxt = 1000)
+exp(log_lambda$approx)
+exp(log_lambda$sim)
+exp(log_lambda$sim.CI)
+```
+#### Extinction risk
+
+```{r}
+extp <- stoch.quasi.ext(matrices = test_matrix, n0 = c(50, 50), Nx = 10, tmax = 10, maxruns = 20, nreps = 5)
+extp
+```
+
+stochastic elasticity en sensitivity toevoegen (analoog aan Bro)
+
+-> welke parameters zijn het 
+
+
+Afschot scenario's toevoegen
+
+- S5 -> 20% afschot wordt vaak als duurzaam beschouwd (in goeie populaties)
+- waarschijnlijk nodig om jacht densiteitsafhankelijk te maken (ook in stochastisch model)
+
+
+
+- Bro gaat ervan uit dat afschot densiteit afhankelijk is -> vandaar uit analyse gegooid
+
+
+## Model Roodbergen
+
+## Lijst van de populatieparameters voor het populatiemodel van Roodbergen
+
+```{r popparam}
+# Parameterwaarden uit Roodbergen
+b <- 1       # kans op broeden
+n1 <- 0.46   # nestsucces eerste legsel
+u1 <- 12.3   # aantal uitgekomen eieren per eerste legsel
+Sk1 <- 0.4   # overleving van kuikens uit een eerste legsel
+h <- 0.78    # kans op herleg
+nh <- 0.4    # nestsucces herlegsel
+uh <- 9      # aantal uitgekomen eieren per herlegsel
+Skh <- 0.4   # overleving van kuikens uit een herlegsel
+Sai1 <- 0.78 # overleving hen tijdens incubatie 1e legsel
+Saz1 <- 0.8  # overleving hen zomer zonder herlegsel
+Saih <- 1    # overleving hen tijdens incubatie herlegsel
+Sazh <- 0.9  # overleving hen met herlegsel
+Sjw <- 0.68  # overleving juvenielen tijdens winter
+Saw <- 0.68  # overleving adulten tijdens winter
+```
+
+
+### Elementen van de populatiematrix (Roodbergen)
+
+```{r pop_elem}
+Pjr <- (Sai1 * ((b * n1 * u1 * Sk1) + Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5
+Sab <- Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)
+```
+
+```{r popmatrix}
+mat_roo <- matrix(c(Pjr,        Pjr,
+                    Sab * Saw,  Sab * Saw),
+                  nrow = 2, ncol = , byrow = TRUE)
+```

@@ -1,0 +1,68 @@
+---
+title: "KnownFate_Eendjes"
+author: "Toon Van Daele"
+date: "4-2-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(RMark)
+```
+
+```{r}
+data(Blackduck)
+head(Blackduck)
+tail(Blackduck)
+```
+
+Starting with version 1.6.3 factor variables are no longer allowed.
+They can work as in this example but they can be misleading and fail if the
+levels are non-numeric.  The real parameters will remain unchanged but the
+betas will be different.
+
+```{r}
+# Change Birdage to numeric
+Blackduck$BirdAge = as.numeric(Blackduck$BirdAge) - 1
+
+# Process data
+bduck.processed = process.data(Blackduck, model = "Known")
+
+# Create default design data
+bduck.ddl = make.design.data(bduck.processed)
+
+# Add occasion specific data min < 0; I have no idea what it is
+#bduck.ddl$S$min = c(4,6,7,7,7,6,5,5)
+
+#  Define range of models for S
+S.dot = list(formula = ~1)
+S.time = list(formula = ~time)
+S.wing = list(formula = ~Wing_Len)
+S.cond = list(formula = ~condix)
+#S.min = list(formula = ~min)
+S.BirdAge = list(formula = ~BirdAge)
+#S.Weight = list(formula = ~Weight)
+
+# Create model list
+model.list = create.model.list("Known")
+model.list
+```
+
+Note that in the following model in the MARK example, the covariates
+have been standardized.  That means that the beta parameters will be different
+for BirdAge, Weight and their interaction but the likelihood and real parameter
+estimates are the same.
+
+```{r}
+# Run assortment of models
+bduck.results = mark.wrapper(model.list,data = bduck.processed,ddl = bduck.ddl,
+               invisible = FALSE,threads = 1)
+
+bduck.results
+```
+
+```{r}
+bduck.results[[4]]$results$real
+```
+

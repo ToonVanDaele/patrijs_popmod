@@ -1,0 +1,295 @@
+---
+title: "Populatiemodel_INBO"
+author: "Toon Van Daele"
+date: "23-1-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(popbio)
+library(boot)
+source("functions.R")
+```
+
+# Populatiemodellering Patrijs INBO
+
+Het onderstaande script bevat de maquette voor het populatiemodel van Patrijs in Vlaanderen.
+De parameters zijn nu nog overgenomen uit andere studies (Bro & Roodbergen).
+In de loop van het project zullen deze vervangen worden door eigen parameterwaarden.
+
+## Algemene beschrijving
+
+- cyclus 1 jaar - tijdstap in het vroege voorjaar
+- enkel hennen (sex ratio at birth 1:1)
+- bird pulse / pre-breeding / census early spring before breeding
+- includes hunting
+
+## Populatieparameters
+
+-> opzoeken hoe parameterwaarden worden berekend op basis van telemetry studies
+
+o.a. referentie naar studie in Skandinavië in Roodbergen.
+
+
+```{r popparam}
+# Parameterwaarden uit Roodbergen (xxxx)
+b <- 1       # kans op broeden
+n1 <- 0.46   # nestsucces eerste legsel
+u1 <- 12.3   # aantal uitgekomen eieren per eerste legsel
+Sk1 <- 0.4   # overleving van kuikens uit een eerste legsel
+h <- 0.78    # kans op herleg
+nh <- 0.4    # nestsucces herlegsel
+uh <- 9      # aantal uitgekomen eieren per herlegsel
+Skh <- Sk1   # overleving van kuikens uit een herlegsel (=1ste legsel)
+Sai1 <- 0.78 # overleving hen tijdens incubatie 1e legsel
+Saz1 <- 0.8  # overleving hen zomer zonder herlegsel
+Saih <- 1    # overleving hen tijdens incubatie herlegsel
+Sazh <- 0.9  # overleving hen met herlegsel
+Saw <- 0.68  # overleving adulten tijdens winter
+Sjw <- Saw   # overleving juvenielen tijdens winter gelijk gesteld aan adulten
+```
+
+
+### Populatiematrix
+
+### Elementen van de populatiematrix (Bro)
+
+```{r pop_elem}
+Pjr <- (Sai1 * ((b * n1 * u1 * Sk1) + Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5
+Sab <- Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)
+```
+
+```{r popmatrix}
+matINBO <- matrix(c(Pjr,        Pjr,
+                Sab * Saw,  Sab * Saw),
+              nrow = 2, ncol = , byrow = TRUE)
+```
+
+## Population growth (lambda)
+
+```{r}
+lambda(matINBO)
+```
+
+## Sensitiviteit en elasticiteit (Deterministisch, analoog aan Roodbergen)
+
+```{r sens_det}
+a1 <- eigen.analysis(matINBO)
+a1$sensitivities
+```
+
+```{r elas_det}
+a1$elasticities
+```
+
+
+## Stochasticiteit
+
+Door stochasticteit toe te voegen aan het model houden we rekening met de
+natuurlijke variabiliteit in overleving en reproductie als gevolg van 
+omgevingsfactoren (environmental stochasticity) en omwille van puur toeval
+(demografische stochasticiteit). Globaal genomen heeft de stochasticiteit tot
+gevolg dat de lambda lager wordt ingeschat.
+
+Voor de stochasticiteit doen we een trekking uit een parametrische distributie (Caswell 2001, §14.5.2).
+Er zijn meerdere distributies mogelijk (Samaranayaka, 2009). Hieronder gebruiken we 3 distributies:
+ 
+ - beta distributie -> wanneer de parameterwaarde en de betrouwbaarheidsintervallen gekend zijn in de 'real scale' (waarde tussen 0 en 1).
+ - logit normaal distributie voor parameterwaarden in de logit schaal wanneer de parameterwaarden berekend werden in de logit schaal (-inf, inf). Dit is vaak het geval bij probabiliteiten.
+ - Poisson distributie -> voor tellingen van aantallen (vb. aantal uitgekomen eieren, u1 en en uh)
+
+(Een alternatieve methode is eventueel een bootstrap met gekende / gemeten 
+waarden (Caswell, 2001 §14.5.1). Dit heeft niet mijn voorkeur.)
+
+```{r}
+n_mat <- 20 # number of stochastic matrices (increase for final analysis)
+```
+
+### Environmental stochasticity
+
+Voor de impact van de leefomgeving op de overleving onderscheiden we twee
+verschillende invloeden op de overleving.
+
+De weersomtandigheden (in het voorjaar?) bepalen in belangrijke mate de
+kuikenoverleving uit het eerste legsel (Sk1) en een eventueel herlegsel (Skh). 
+
+Een globaal strenge of zachte winter heeft een impact op de overleving in de
+winter, zowel voor de juvenielen (Sjw) als de adulten (Saw). Het effect op de
+lambda is het grootst voor de adulte overleving (ref). Enkele environmental 
+stochasticity op de adulten. (Effect op Sjw kunnen we later n   og toevoegen als 
+dat nodig blijkt)
+
+```{r}
+# Sk1, Skh -> e_Sk1 & e_Skh terug toevoegen
+
+
+#Beta distribution - determine shape1 & shape2
+beta_shape <- betaPr(mu = Saw, sd = 0.05)
+e_Saw_beta <- rbeta(n = n_mat, shape1 = beta_shape[1],  shape2 = beta_shape[2])
+
+# Logit normal distribution' i.e. normaal distributie in the logit scale
+# Dit is zeer bruikbaar wanneer de parameterwaarde en CI's in de logit 
+# schaal gekend zijn.
+
+# Illustratie van het verschil tussen beide
+# e_logit_Saw <- rnorm(n = n_mat, mean = qlogis(Saw), sd = 0.22)
+# e_Saw_logit <- plogis(e_logit_Saw)
+# 
+# dfr <- data.frame(beta = e_Saw_beta, logit = e_Saw_logit) %>%
+#   pivot_longer(cols = c("beta", "logit")) 
+# ggplot(dfr, aes(x = value, group = name, colour = name)) + geom_density()
+e_Saw <- e_Saw_beta
+```
+
+
+### Demografische stochasticiteit
+
+Demografische stochasiticiteit houdt er rekening mee dat de overlevingskans 
+slechts een gemiddelde is van individuele binomiale uitkomsten (0 of 1). Voor kleinere
+populaties kan dit een rol spelen en is dit een extra bron van variabiliteit.
+
+Voor de reproductie wordt de poissonverdeling gebruik.
+
+```{r}
+s_u1 <- rpois(n = n_mat, lambda = u1)  # set first hatching
+s_uh <- rpois(n = n_mat, lambda = uh)  # set second hatching
+data.frame(hatch1 = s_u1, hatch2 = s_uh) %>%
+  pivot_longer(cols = c("hatch1", "hatch2")) %>%
+  ggplot(aes(x = value, colour = name)) + geom_density()
+```
+
+
+```{r}
+# size = 100 can be replaced with actual population size
+s_Saw <- rbinom(n = n_mat, size = 100, prob = e_Saw) / 100  # survival adults
+s_Sjw <- s_Saw   # assumptie juveniele overleving = adulte overleving
+```
+
+#### Stochastic population matrix
+
+```{r}
+s_Pjr <- (Sai1 * ((b * n1 * s_u1 * Sk1) + Saih * (1 - n1) * h * nh * s_uh * Skh) * s_Sjw) * 0.5
+s_S   <- (Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)) * s_Saw
+
+test_matrix <- matrix(c(s_Pjr, s_S, s_Pjr, s_S), ncol = n_mat, byrow = TRUE)
+```
+
+#### Stochastic growth rate
+
+```{r}
+log_lambda <- stoch.growth.rate(test_matrix, prob = NULL, maxt = 1000)
+exp(log_lambda$approx)
+exp(log_lambda$sim)
+exp(log_lambda$sim.CI)
+```
+
+### Extinction risk
+
+Voor de berekening van de extinction risk is een initiële populatie (N0) vereist.
+
+```{r}
+n0 <- c(50,50)   # adjusted to real population estimation
+extp <- stoch.quasi.ext(matrices = test_matrix, n0 = n0, Nx = 10, tmax = 10, maxruns = 20, nreps = 5)
+extp
+```
+
+De hoge lambda (1.207) maakt dat ook met de stochasticiteit de extinction risk vrijwel nihil is.
+
+
+### Stochastic sensitivity & elasticity
+
+```{r}
+# stoch.sens in popbio requires a list of matrices.
+
+# matrices in de kolomen moet omgezet worden naar een lijst van matrices
+test <- as_tibble(test_matrix) %>%
+  rowwise() %>%
+  map(matrix, nrow = 2, ncol = 2)
+
+stoch_sens <- stoch.sens(test, tlimit = 100)
+stoch_sens
+
+# -> Niet de elasticiteit van de matrix elementen, maar de elasticiteit
+# van de individuele parameters is van belang. 
+# cfr. figuur 4 van Bro (2000).
+
+# Doel -> verschillende combinaties maken en bepalen welke combinatie tot een duurzame populatie leidt met de minste 'inspanningen'.
+
+```
+
+
+```{r}
+a1$elasticities
+```
+
+(Nog na te kijken of er methodologisch verschil is in de berekening van de 
+stochastische sensitiviteit in Bro (2000).)
+
+## Scenario's voor jacht
+
+We berekenen de stoch lambda en extinction risk voor verschillende afschot scenario's.
+
+Jacht is gelijk voor juvenielen als adulten. Meestal is het verschil tussen juvenielen en adulten niet te onderscheiden.
+
+  - scen 0: geen afschot
+  - scen 1
+  - scen 2: 20% afschot (wordt vaak als duurzaam beschouwd in goeie populaties)
+  - scen 3: 40% afschot
+  - scen 4: afschot densiteitsafhankelijk (lineair)
+  
+
+-> optimalisatie toevoegen (cfr ever) met optim voor lambda (=1) bij 
+wijziging van één of meerdere parameters: afschot adulten, lambda zonder afschot (management met impact op kuikenoverleving en andere maatregelen). 
+
+-> figuur (3D) extinction rate, lambda, % afschot
+
+
+
+
+
+
+```{r}
+hunt0 <- 0
+hunt1 <- 0.2
+hunt2 <- 0.6
+
+#h0_Sjw <- h0_Saw <- e_Saw * (1 - hunt0)
+h1_Sjw <- h1_Saw <- e_Saw * (1 - hunt1)
+h2_Sjw <- h2_Saw <- e_Saw * (1 - hunt2)
+```
+
+```{r}
+
+h1_Pjr <- (Sai1 * ((b * n1 * s_u1 * Sk1) + Saih * (1 - n1) * h * nh * s_uh * Skh) * h1_Sjw) * 0.5
+h1_s_S  <- (Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)) * h1_Saw
+
+h2_Pjr <- (Sai1 * ((b * n1 * s_u1 * Sk1) + Saih * (1 - n1) * h * nh * s_uh * Skh) * h2_Sjw) * 0.5
+h2_s_S  <- (Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)) * h2_Saw
+
+h1_mat <- matrix(c(s_Pjr, h1_s_S, s_Pjr, h1_s_S), ncol = n_mat, byrow = TRUE)  
+h2_mat <- matrix(c(s_Pjr, h2_s_S, s_Pjr, h2_s_S), ncol = n_mat, byrow = TRUE)   
+```
+
+
+```{r}
+h1_lambda <- stoch.growth.rate(h1_mat, prob = NULL, maxt = 1000)
+h2_lambda <- stoch.growth.rate(h2_mat, prob = NULL, maxt = 1000)
+exp(h1_lambda$sim)
+#exp(h2_lambda$sim.CI)
+exp(h2_lambda$sim)
+#exp(h2_lambda$sim.CI)
+```
+
+```{r}
+#n0 <- c(50,50)   # adjusted to real population estimation
+h1_ext <- stoch.quasi.ext(matrices = h1_mat, n0 = n0, Nx = 10, tmax = 20, maxruns = 20, nreps = 5)
+h2_ext <- stoch.quasi.ext(matrices = h2_mat, n0 = n0, Nx = 10, tmax = 20, maxruns = 20, nreps = 5)
+```
+
+
+```{r}
+
+```
+

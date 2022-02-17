@@ -1,0 +1,76 @@
+---
+title: "Parameter_Estimation_INBO"
+author: "Toon Van Daele"
+date: "1-2-2022"
+output: html_document
+---
+
+# Keuze voor de geschikte methode
+
+De keuze voor de meest geschikte methode hangt af van enkele 
+karakteristieken van de dataset:
+
+  - Worden alle patrijzen (nagenoeg) gelijktijdig gezenderd? (van januari tot eind april
+  - Is de overlevingskans constant doorheen de tijd? 
+  - Is er veel tijdelijke uitval? (worden zenders soms niet gevonden en later weer wel?)
+  - Interval tussen opvolging (1 x week in de zomer 2 x per week)
+  - Aantal dagen tussen de fases kan sterk verschillen
+  - 
+
+## Mayfield method (intuitieve benadering)
+
+Delen het aantal dode dieren (d) door de totale tijd (T)
+
+  - mortality rate constant
+  - sample random
+
+```{r mayfield}
+d <- 13  # number of deads recorded
+T <- 258.87  # Total of bird years
+
+m <- d / T   # mortality rate
+S <- 1 - m   # survival rate
+L <- 1/m     # life expectancy
+
+m_CI <- m / (2 * d) * qchisq(p = c(0.025, 0.975), df = 2 * d)
+S_CI <- 1 - m_CI
+L_CI <- 1/m_CI
+```
+
+## Kaplan Meier (KM)
+
+  - mortality rate in functie van de tijd (= duur)
+  - mogelijk megt het 'survival' R package
+  - schatting is identiek, maar CI's zijn veel betrouwbaarder
+  
+```{r}
+library(survival)
+
+data(cancer, package = "survival")
+head(aml)
+
+with(aml, Surv(time, status))
+survfit(Surv(time, status) ~ ph.ecog, data=lung)
+Surv(heart$start, heart$stop, heart$event) 
+
+
+
+```
+
+## Known fate models (RMark)
+
+  - correct interpretation of censored data
+  
+Met RMark package
+
+Komt grotendeels neer op joint Live encounters / dead recoveries
+met F, r en p = 1
+
+Data formaat LDLD. 00 = censored data
+
+```{r}
+library(RMark)
+
+
+```
+

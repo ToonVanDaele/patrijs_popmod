@@ -1,0 +1,179 @@
+---
+title: "verwerking_telemetrie_patrijs"
+author: "Toon Van Daele"
+date: "15-2-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(RMark)
+library(survival)
+source("functions.R")
+```
+
+# Verwerking telemetrie gegevens Patrijs
+
+Dit Rmarkdown script is een 'maquette' voor de verwerking van de telemetriegegevens
+van Patrijs. In dit script worden telemetriegegevens gesimuleerd. Met een analoog
+script kunnen de werkelijke data ingevoerd worden.
+
+De analyse maakt een schatting van de overleving voor 1 jaar.
+In de studie zal de overleving voor kortere opeenvolgende termijnen geschat worden (winteroverleving, ...).
+
+Of de schatting van alle parameters in enkele analyse kan, of het beter is voor elke parameter afzonderlijk moeten we nog bekijken.
+
+De schatting van de parameters en de betrouwbaarheidsintervallen zijn de input
+voor de populatiemodellering.
+
+Voor de individuen die niet overleven moet een assumptie gemaakt worden voor de datum waarop ze gebroed zouden hebben. -> berekening van de Saw. (zie ook Bro 1999)
+
+## Simulatie van een dataset
+
+We simuleren een dataset die lijkt op wat we verwachten uit de telemetriegegevevens
+van de Patrijs. 
+
+De gesimuleerde dataset voldoet aan een aantal karakteristieken. (nog verder
+te verfijnen en aan te passen)
+
+  - In totaal worden 66 individuen gevolgd
+  - De periode waar bij zenders worden aangebracht tussen de start 
+van het project en de laatste zender die wordt aangebracht. Het 'aanbrengen' van de zenders verloopt volgens een uniforme verdeling binnen deze periode. (eind januari tot eind april.). Het aanbrengen van de zenders gebeurd in een 15 tal vangstmomenten.
+  - Voor de uitval in de loop van de studie is er vaste waarde (jaarbasis). Deze
+uitval omvat: uitval van de zender, verlies van de zender, migratie van het individu, (wat nog?). De uitval van de eerste dagen (eerste week) na het zenderen worden niet opgenomen in de dataset. Verlies van de zender is meestal in het begin.
+  - De te schatten parameter is overleving op jaarbasis (kan ook kortere periode).
+  - Overleving is verschillend voor male en female en verschilt per periode.
+
+  
+
+De simulatie is geschreven als een functie (wordt verderop ook voor de power berekeningen
+gebruikt wordt)
+
+```{r sim_param}
+Sy <- 0.8          # Overleving (Jaar)
+n_init <- 66       # Totaal aantal individuen met zenders
+max_start <- 1     # Periode van start van het project en de laatste aangebrachte zender (half januari tot eind april)
+p_loss_y <- 0.0001 # Kans op verlies van de zender (Jaar)
+tot_days <- 365  # Totale duur van het opvolgen (dagen)
+```
+
+```{r sim_tel}
+sim1 <- sim_tel(Sy = Sy, n_init = n_init, max_start = max_start,
+          p_loss_y = p_loss_y, tot_days = tot_days)
+```
+
+```{r}
+sim1$m_time
+sim1$s_time
+sim1$l_time
+# plot toevoegen
+```
+
+## Berekening van de survival met Kaplan-Meier
+
+Hiervoor converteren we de data van de simulatie naar het formaat voor het 
+survival package. In dit geval nemen we impliciet aan dat we elke dag de status
+opvolgen. In realiteit is dat niet zo. Nog uit te zoeken hoe dit te implementeren.
+
+Hoe weet je wanneer een individu dood is en hoe wordt de datum bepaald? Datum van 
+observatie? Schatting van de datum? 
+
+Bij known fate modellen (hieronder) moeten we effectief de observaties specifiëren.
+Misschien is dit best ook hier bij Kaplan-Meier?
+
+
+```{r convert2surv}
+surv1 <- convert_to_surv(m_time = sim1$m_time,
+                         s_time = sim1$s_time,
+                         l_time = sim1$l_time)
+surv1
+```
+
+```{r}
+plot(surv1$event_time)
+```
+
+```{r}
+# Create survival object
+km <- Surv(surv1$event_time, surv1$event_type)
+km
+```
+
+```{r}
+km_fit <- survfit(data = km, km ~ 1)
+km_fit
+
+summary(km_fit)
+```
+
+```{r}
+plot(km_fit, main = "Kaplan-Meier estimate (95% CI)",
+     xlab = "time", ylab = "survival function")
+```
+
+```{r}
+cat(tail(summary(km_fit)$surv, 1), "(", tail(summary(km_fit)$lower, 1), "-", 
+      tail(summary(km_fit)$upper, 1), ")")
+```
+
+## Schatting van overleving met 'known fate model' (RMark)
+
+Hiervoor moeten we eerst de data in de vorm van een life history zetten.
+Een vector met opeenvolging van LDLDLDLD...(L = live, D = dead) een rij per individu.
+
+Voor de life history hebben de effectieve timing van de observaties nodig.
+We stellen hier een vast interval voor de observaties. Later kan dit aangepast
+worden aan de werkelijke tijd van observatie.
+
+Confirmeren van dood: Er zijn er die dood gevonden worden, soms afgevallen zender in omstandigheden die vrij zeker gelinked zijn aan predatie.
+
+Af en toe verdwijnen er individuen gedurende enkele weken.
+
+Observaties: elke week, in de zomer frequenter. Overlijden steeds op de datum van de observatie.
+
+Probleem voor de overleving tot broeden -> einddatum verschilt!
+
+```{r obs}
+it <- 7 # time interval between observations (days)
+# An extra observation is added for the last day of the study
+obs <- c(seq(from = 1, to = tot_days - it, by = it), tot_days)
+obs
+```
+
+```{r convert2rmark}
+df_ch1 <- convert_to_RMark(obs = obs, m_time = sim1$m_time,
+                           s_time = sim1$s_time, l_time = sim1$l_time)
+df_ch1
+```
+
+
+```{r}
+# RMark - Known fate model
+# Process data
+processed <- process.data(df_ch1, model = "Known")
+
+# Create default design data
+ddl <- make.design.data(processed)
+
+#  Define range of models for S
+S.dot = list(formula = ~1)
+#S.time = list(formula = ~time)
+
+# Create model list and run assortment of models
+model.list = create.model.list("Known")
+results <- mark.wrapper(model.list, data = processed, ddl = ddl,
+                        invisible = FALSE,threads = 1)
+
+results
+results[[1]]$results$real
+
+S_kf <- (results[[1]]$results$real$estimate)^length(obs)
+S_kf_lcl <- (results[[1]]$results$real$lcl)^length(obs)
+S_kf_ucl <- (results[[1]]$results$real$ucl)^length(obs)
+```
+
+```{r}
+cat(S_kf, "(", S_kf_lcl, "-", S_kf_ucl, ")")
+```
+
