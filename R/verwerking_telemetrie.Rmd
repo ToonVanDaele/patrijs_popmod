@@ -176,4 +176,7 @@ S_kf_ucl <- (results[[1]]$results$real$ucl)^length(obs)
 ```{r}
 cat(S_kf, "(", S_kf_lcl, "-", S_kf_ucl, ")")
 ```
+```{r}
+cleanup(ask = FALSE)
+```
 

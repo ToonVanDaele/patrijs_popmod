@@ -114,3 +114,30 @@ gammaPr <- function(mu, sd)
 }
 
 
+#### Build population matrix
+
+popmat <- function(b = 1,        # kans op broeden
+                   n1 = 0.46,   # nestsucces eerste legsel
+                   u1 = 12.3,   # aantal uitgekomen eieren per eerste legsel
+                   Sk1 = 0.4,   # overleving van kuikens uit een eerste legsel
+                   h = 0.78,    # kans op herleg
+                   nh = 0.4,    # nestsucces herlegsel
+                   uh = 9,      # aantal uitgekomen eieren per herlegsel
+                   Skh = Sk1,   # overleving van kuikens uit een herlegsel (=1ste legsel)
+                   Sai1 = 0.78, # overleving hen tijdens incubatie 1e legsel
+                   Saz1 = 0.8,  # overleving hen zomer zonder herlegsel
+                   Saih = 1,    # overleving hen tijdens incubatie herlegsel
+                   Sazh = 0.9,  # overleving hen met herlegsel
+                   Saw = 0.68,  # overleving adulten tijdens winter
+                   Sjw = 0.68)   # overleving juvenielen tijdens winter (= Saw)
+                   {
+
+  Pjr <- (Sai1 * ((b * n1 * u1 * Sk1) + Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5
+  Sab <- Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)
+
+
+  mat <- matrix(c(Pjr,        Pjr,
+                      Sab * Saw,  Sab * Saw),
+                    nrow = 2, ncol = , byrow = TRUE)
+  return(mat)
+}

@@ -293,3 +293,29 @@ h2_ext <- stoch.quasi.ext(matrices = h2_mat, n0 = n0, Nx = 10, tmax = 20, maxrun
 
 ```
 
+
+
+
+## Stochastische sensitiviteit per parameter
+
+Voor de stochastische sensitiviteit van de matrix elementen gebruiken
+we de popbio functie stoch.sens (hierboven).
+
+Zijn we ook geïnteresseerd in de sensitiviteit van de individuele parameters die 
+de matrixelementen, dan moeten we parameters per parameter de berekening maken.
+
+Eerst een voorbeeld voor een deterministisch model
+
+
+```{r sens_param}
+Pjr <- (Sai1 * ((b * n1 * u1 * Sk1) + Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5
+Sab <- Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)
+```
+
+```{r popmatrix}
+matINBO <- matrix(c(Pjr,        Pjr,
+                Sab * Saw,  Sab * Saw),
+              nrow = 2, ncol = , byrow = TRUE)
+```
+```
+
