@@ -2,6 +2,7 @@
 
 library(tidyverse)
 library(popbio)
+source("R/functions.R")
 
 b <- 1       # kans op broeden
 n1 <- 0.46   # nestsucces eerste legsel
@@ -38,12 +39,41 @@ par[13] <- Sjw  # overleving juvenielen tijdens winter gelijk gesteld aan adulte
 
 names(par) <- name_par
 
-popmat(b = b, n1 = par["n1"], u1 = par["u1"], Sk1 = par["Sk1"], h = par["h"],
+mat <- popmat(b = b, n1 = par["n1"], u1 = par["u1"], Sk1 = par["Sk1"], h = par["h"],
        nh = par["nh"], uh = par["uh"], Skh = par["Skh"], Sai1 = par["Sai1"],
        Saz1 = par["Saz1"], Saih = par["Saih"], Sazh = par["Sazh"],
        Saw = par["Saw"], Sjw = par["Sjw"])
 
+lambda1 <- lambda(mat)
+
+
 # loop voor iedere parameter aanpassing *1.0001 -> elasticiteit berekenen
+
+dfpar <- data.frame(param = name_par, value = par)
+dfpar$lambda2 <- dfpar$elas <- NA
+
+for (i in 1:nrow(dfpar)) {
+  print(dfpar[i, "param"])
+  dpar <- par
+  dpar[dfpar[i,"param"]] <- dpar[dfpar[i,"param"]]*1.001
+  mat <- popmat(b = b, n1 = dpar["n1"], u1 = dpar["u1"], Sk1 = dpar["Sk1"], h = dpar["h"],
+         nh = dpar["nh"], uh = dpar["uh"], Skh = dpar["Skh"], Sai1 = dpar["Sai1"],
+         Saz1 = dpar["Saz1"], Saih = dpar["Saih"], Sazh = dpar["Sazh"],
+         Saw = dpar["Saw"], Sjw = dpar["Sjw"])
+  lambda2 <- lambda(mat)
+  dfpar[i, "lambda2"] <- lambda2
+  dfpar[i, "elas"] <- (lambda2 - lambda1) / lambda1 * 1000
+  }
+
+dfpar
+
+
+## en nu stochastische sensitiviteit per parameter
+
+
+
+
+
 
 
 matINBO <- matrix(c(Pjr,        Pjr,
