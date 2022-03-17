@@ -116,28 +116,103 @@ gammaPr <- function(mu, sd)
 
 #### Build population matrix
 
-popmat <- function(b = 1,        # kans op broeden
-                   n1 = 0.46,   # nestsucces eerste legsel
-                   u1 = 12.3,   # aantal uitgekomen eieren per eerste legsel
-                   Sk1 = 0.4,   # overleving van kuikens uit een eerste legsel
-                   h = 0.78,    # kans op herleg
-                   nh = 0.4,    # nestsucces herlegsel
-                   uh = 9,      # aantal uitgekomen eieren per herlegsel
-                   Skh = Sk1,   # overleving van kuikens uit een herlegsel (=1ste legsel)
-                   Sai1 = 0.78, # overleving hen tijdens incubatie 1e legsel
-                   Saz1 = 0.8,  # overleving hen zomer zonder herlegsel
-                   Saih = 1,    # overleving hen tijdens incubatie herlegsel
-                   Sazh = 0.9,  # overleving hen met herlegsel
-                   Saw = 0.68,  # overleving adulten tijdens winter
-                   Sjw = 0.68)   # overleving juvenielen tijdens winter (= Saw)
-                   {
+patrijs_mat <- function(vr = list(
+  b = 1,        # kans op broeden
+  n1 = 0.46,   # nestsucces eerste legsel
+  u1 = 12.3,   # aantal uitgekomen eieren per eerste legsel
+  Sk1 = 0.4,   # overleving van kuikens uit een eerste legsel
+  h = 0.78,    # kans op herleg
+  nh = 0.4,    # nestsucces herlegsel
+  uh = 9,      # aantal uitgekomen eieren per herlegsel
+  Skh = Sk1,   # overleving van kuikens uit een herlegsel (=1ste legsel)
+  Sai1 = 0.78, # overleving hen tijdens incubatie 1e legsel
+  Saz1 = 0.8,  # overleving hen zomer zonder herlegsel
+  Saih = 1,    # overleving hen tijdens incubatie herlegsel
+  Sazh = 0.9,  # overleving hen met herlegsel
+  Saw = 0.68,  # overleving adulten tijdens winter
+  Sjw = 0.68))   # overleving juvenielen tijdens winter (= Saw)
+  {
 
-  Pjr <- (Sai1 * ((b * n1 * u1 * Sk1) + Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5
-  Sab <- Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)
+  ## -> beter als een expressie in de markdown code zetten?
 
+  exPjr <- expression((Sai1 * ((b * n1 * u1 * Sk1) +
+                               Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5)
+  exSab <- expression(Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh))
+
+  Pjr <- eval(expr = exPjr, envir = vr)
+  Sab <- eval(expr = exSab, envir = vr)
+
+  Saw <- vr[["Saw"]]
 
   mat <- matrix(c(Pjr,        Pjr,
-                      Sab * Saw,  Sab * Saw),
-                    nrow = 2, ncol = , byrow = TRUE)
+                  Sab * Saw,  Sab * Saw),
+                nrow = 2, ncol = , byrow = TRUE)
   return(mat)
 }
+
+# Sensitivity of vital rates calculated by small pertubations
+# of each vital rate
+# In contrast to popbio::vitalsens which calculates sensitivity using partial
+# derivatives
+# Part of this code is copied from popbio::vitalsens
+
+vitalsens_pert <- function(elements, vitalrates) {
+
+  pert <- 0.001
+  if (is.vector(vitalrates)) {
+    vitalrates <- as.list(vitalrates)
+  }
+  if (!is.list(vitalrates)) {
+    stop("Vital rates should be a vector or list")
+  }
+  if (class(elements)[1] != "expression") {
+    stop("Matrix elements should be an expression")
+  }
+  n <- sqrt(length(elements))
+  if (n%%1 != 0) {
+    stop(paste("Length of element expression is", length(elements),
+               "- Expecting power of 2 like 4,9,16 to form a square matrix"))
+  }
+  vrs <- try(sapply(elements, eval, vitalrates, NULL), silent = TRUE)
+  if (inherits(vrs, "try-error")) {
+    vrs <- sub("Error in eval\\(expr, envir, enclos\\) :",
+               "", vrs[1])
+    stop(paste("Cannot evaluate element expression using given vital rates:",
+               vrs))
+  }
+
+  res <- data.frame(estimate = unlist(vitalrates), sensitivity = 0,
+                    elasticity = 0)
+
+  A <- matrix(vrs, nrow = n, byrow = TRUE)
+  lambdaA <- lambda(A)
+
+  for (i in 1:length(vitalrates)) {
+
+    vr_pert <- vitalrates
+    vr_pert[[i]] <- vitalrates[[i]] * (1 + pert)
+
+    Apert <- matrix(sapply(elements, eval,vr_pert, NULL), nrow = n, byrow = TRUE)
+
+    lambdaApert <- lambda(Apert)
+    elas <- (lambdaApert - lambdaA) / lambdaA * (1 / pert)
+    sens <- (lambdaApert - lambdaA) / (vr_pert[[i]] - vitalrates[[i]])
+    res[i, 3] <- elas
+    res[i, 2] <- sens
+  }
+  return(res)
+}
+
+
+  # eig <- eigen.analysis(A)
+  # deriv.funcs <- sapply(elements, deriv, namevec = names(vitalrates),
+  #                       function.arg = TRUE)
+  # devs <- lapply(deriv.funcs, function(x) do.call(x, vitalrates))
+  # for (i in 1:length(vitalrates)) {
+  #   derivs <- matrix(as.numeric(lapply(devs, function(x) attr(x,
+  #                                                             "gradient")[i])), nrow = n, byrow = TRUE)
+  #   res[i, 2] <- sum(derivs * eig$sensitivities)
+  #   res[i, 3] <- vitalrates[[i]]/eig$lambda1 * sum(derivs *
+  #                                                    eig$sensitivities)
+  # }
+  # res

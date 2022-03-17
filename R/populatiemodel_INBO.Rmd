@@ -32,39 +32,45 @@ In de loop van het project zullen deze vervangen worden door eigen parameterwaar
 
 o.a. referentie naar studie in Skandinavië in Roodbergen.
 
+We bewaren de populatieparameters als een lijst van parameters (vital rates).
 
 ```{r popparam}
-# Parameterwaarden uit Roodbergen (xxxx)
-b <- 1       # kans op broeden
-n1 <- 0.46   # nestsucces eerste legsel
-u1 <- 12.3   # aantal uitgekomen eieren per eerste legsel
-Sk1 <- 0.4   # overleving van kuikens uit een eerste legsel
-h <- 0.78    # kans op herleg
-nh <- 0.4    # nestsucces herlegsel
-uh <- 9      # aantal uitgekomen eieren per herlegsel
-Skh <- Sk1   # overleving van kuikens uit een herlegsel (=1ste legsel)
-Sai1 <- 0.78 # overleving hen tijdens incubatie 1e legsel
-Saz1 <- 0.8  # overleving hen zomer zonder herlegsel
-Saih <- 1    # overleving hen tijdens incubatie herlegsel
-Sazh <- 0.9  # overleving hen met herlegsel
-Saw <- 0.68  # overleving adulten tijdens winter
-Sjw <- Saw   # overleving juvenielen tijdens winter gelijk gesteld aan adulten
+# Parameterwaarden uit Roodbergen (-> finaal INBO waarden in te vullen)
+
+INBO.vr <- list(b   = 1,     # kans op broeden
+                h   = 0.78,  # kans op herleg
+                n1  = 0.46,  # nestsucces eerste legsel
+                nh  = 0.4,   # nestsucces herlegsel
+                u1  = 12.3,  # aantal uitgekomen eieren per eerste legsel
+                uh  = 9,     # aantal uitgekomen eieren per herlegsel
+                Sk1 = 0.4,   # overleving kuikens uit een eerste legsel
+                Skh = 0.4,   # overleving kuikens uit een herlegsel (=Sk1)
+                Sai1= 0.78,  # overleving hen tijdens incubatie 1e legsel
+                Saz1= 0.8,   # overleving hen zomer zonder herlegsel
+                Saih= 1,     # overleving hen tijdens incubatie herlegsel
+                Sazh= 0.9,   # overleving hen met herlegsel
+                Saw = 0.68,  # overleving adulten tijdens winter
+                Sjw = 0.68)  # overleving juvenielen tijdens winter (= Saw)
 ```
 
 
 ### Populatiematrix
 
-### Elementen van de populatiematrix (Bro)
+### Elementen van de populatiematrix
+
+Op basis van de vital rates berekenen we de matrixelementen voor de populatiematrix.
+
+Voor Patrijs is dit een heel eenvoudige 2x2 matrix:
+
+Pjr  Pjr
+S    S
+
+De twee waarden (Pjr en S) worden berekend en in een matrix geplaatst met de functie 'patrijs_mat'.
+
 
 ```{r pop_elem}
-Pjr <- (Sai1 * ((b * n1 * u1 * Sk1) + Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5
-Sab <- Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)
-```
-
-```{r popmatrix}
-matINBO <- matrix(c(Pjr,        Pjr,
-                Sab * Saw,  Sab * Saw),
-              nrow = 2, ncol = , byrow = TRUE)
+matINBO <- patrijs_mat(INBO.vr)
+matINBO
 ```
 
 ## Population growth (lambda)
@@ -126,7 +132,7 @@ dat nodig blijkt)
 
 
 #Beta distribution - determine shape1 & shape2
-beta_shape <- betaPr(mu = Saw, sd = 0.05)
+beta_shape <- betaPr(mu = INBO.vr$Saw, sd = 0.05)
 e_Saw_beta <- rbeta(n = n_mat, shape1 = beta_shape[1],  shape2 = beta_shape[2])
 
 # Logit normal distribution' i.e. normaal distributie in the logit scale
@@ -153,8 +159,8 @@ populaties kan dit een rol spelen en is dit een extra bron van variabiliteit.
 Voor de reproductie wordt de poissonverdeling gebruik.
 
 ```{r}
-s_u1 <- rpois(n = n_mat, lambda = u1)  # set first hatching
-s_uh <- rpois(n = n_mat, lambda = uh)  # set second hatching
+s_u1 <- rpois(n = n_mat, lambda = INBO.vr$u1)  # set first hatching
+s_uh <- rpois(n = n_mat, lambda = INBO.vr$uh)  # set second hatching
 data.frame(hatch1 = s_u1, hatch2 = s_uh) %>%
   pivot_longer(cols = c("hatch1", "hatch2")) %>%
   ggplot(aes(x = value, colour = name)) + geom_density()
@@ -170,41 +176,67 @@ s_Sjw <- s_Saw   # assumptie juveniele overleving = adulte overleving
 #### Stochastic population matrix
 
 ```{r}
-s_Pjr <- (Sai1 * ((b * n1 * s_u1 * Sk1) + Saih * (1 - n1) * h * nh * s_uh * Skh) * s_Sjw) * 0.5
-s_S   <- (Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)) * s_Saw
+INBO.vr2 <- INBO.vr       # copy vital rates 
+INBO.vr2$Sjw <- s_Sjw  # replace stochastic vital rate
+INBO.vr2$Saw <- s_Saw  # replace stochastic vital rate
 
-test_matrix <- matrix(c(s_Pjr, s_S, s_Pjr, s_S), ncol = n_mat, byrow = TRUE)
+exPjr <- expression((Sai1 * ((b * n1 * u1 * Sk1) +
+                               Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5)
+exS <- expression((Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)) * Saw)
+
+# Calculate values for matrix elements
+s_Pjr <- eval(expr = exPjr, envir = INBO.vr2)
+s_S <- eval(expr = exS, envir = INBO.vr2)
+
+# generate stochastic matrices (each column = 1 matrix - byRow)
+stoch_matrix <- matrix(c(s_Pjr, s_S, s_Pjr, s_S), ncol = n_mat, byrow = TRUE)
 ```
 
 #### Stochastic growth rate
 
+Bereken de log stochastic growth rate
+
 ```{r}
-log_lambda <- stoch.growth.rate(test_matrix, prob = NULL, maxt = 1000)
+log_lambda <- stoch.growth.rate(stoch_matrix, prob = NULL, maxt = 1000)
+```
+Tuljapukar's approximation
+
+```{r}
 exp(log_lambda$approx)
+```
+
+
+Simulation
+
+```{r}
 exp(log_lambda$sim)
+```
+Confidence interval for simulation
+```{r}
 exp(log_lambda$sim.CI)
 ```
+
 
 ### Extinction risk
 
 Voor de berekening van de extinction risk is een initiële populatie (N0) vereist.
 
 ```{r}
-n0 <- c(50,50)   # adjusted to real population estimation
-extp <- stoch.quasi.ext(matrices = test_matrix, n0 = n0, Nx = 10, tmax = 10, maxruns = 20, nreps = 5)
+n0 <- c(5,5)   # adjusted to real population estimation
+extp <- stoch.quasi.ext(matrices = stoch_matrix, n0 = n0, Nx = 10, tmax = 10, maxruns = 20, nreps = 5, verbose = FALSE)
 extp
 ```
 
-De hoge lambda (1.207) maakt dat ook met de stochasticiteit de extinction risk vrijwel nihil is.
+De hoge lambda (1.207) maakt dat ook met de stochasticiteit de extinction risk vrijwel nihil is, ook bij een heel lage initiële populatie
 
 
-### Stochastic sensitivity & elasticity
+### Stochastic sensitivity & elasticity van de matrixelementen
 
 ```{r}
 # stoch.sens in popbio requires a list of matrices.
 
-# matrices in de kolomen moet omgezet worden naar een lijst van matrices
-test <- as_tibble(test_matrix) %>%
+# De matrices in de kolomen moeten worden omgezet in een lijst van matrices
+test <- as_tibble(stoch_matrix, .name_repair = "unique") %>%
   rowwise() %>%
   map(matrix, nrow = 2, ncol = 2)
 
@@ -216,7 +248,6 @@ stoch_sens
 # cfr. figuur 4 van Bro (2000).
 
 # Doel -> verschillende combinaties maken en bepalen welke combinatie tot een duurzame populatie leidt met de minste 'inspanningen'.
-
 ```
 
 
@@ -226,6 +257,105 @@ a1$elasticities
 
 (Nog na te kijken of er methodologisch verschil is in de berekening van de 
 stochastische sensitiviteit in Bro (2000).)
+
+## Sensitiviteit per parameter (vital rate)
+
+Om de sensitiviteit van de matrix elementen te berekenen gebruikten 
+we hierboven de popbio functies 'sensitivity' (deterministische populatiematrix) en 'stoch.sens' (voor stochastische sensitiviteit).
+
+Als we geïnteresseerd zijn in de sensitiviteit van de individuele populatieparameters dan moeten we parameter per parameter de berekening maken.
+
+In dit geval geven we aan voor welke parameters (vital rates) we de sensitiviteit willen berekenen. De deterministische sensitiviteit kan met de functie 'vitalsens' worden berekend.
+
+Hiervoor moeten we de elementen van de populatiematrix als een expressie ingeven.
+De elementen worden rij per rij ingevuld. Voor een 2x2 matrix zijn er 4 elementen vereist.
+
+```{r}
+exp_popmat <- expression((Sai1*((b*n1*u1*Sk1) + Saih*(1 - n1)*h*nh*uh*Skh)*Sjw)*0.5,
+                         (Sai1*((b*n1*u1*Sk1) + Saih*(1 - n1)*h*nh*uh*Skh)*Sjw)*0.5,
+                         Sai1*((1 - h + n1 * h)*Saz1 + (1 - n1)*h*Saih*Sazh)*Saw,
+                         Sai1*((1 - h + n1 * h)*Saz1 + (1 - n1)*h*Saih*Sazh)*Saw)
+detsensvr <- vitalsens(elements = exp_popmat, vitalrates = INBO.vr)
+detsensvr
+```
+
+Opgelet elasticity sommeert niet meer tot 1 (maar >> 1)
+
+```{r}
+sum(detsensvr$elasticity)
+```
+
+
+Plot sensitivity en elasticity
+
+```{r}
+detsensvr %>%
+  mutate(vital_rate = row.names(.)) %>%
+  pivot_longer(cols = c(sensitivity, elasticity),
+               names_to = "type", values_to = "value") %>%
+  ggplot(aes(x = vital_rate, y = value, group = type, fill = type)) +
+  geom_bar(stat = "identity", position = "dodge")
+```
+
+### Sensitiviteit per parameter (vital rate) met perturbaties
+
+Deze alternatieve methode is enkel ter vergelijking met popbio::vitalsens.
+Het resultaat is identiek. Deze functie hebben we later nodig voor de
+sensitiviteit in een stochastische omgeving (zie lager).
+
+```{r}
+sensvr_pert <- vitalsens_pert(elements = exp_popmat, vitalrates = INBO.vr)
+```
+
+```{r}
+sensvr_pert
+```
+
+
+## Effect van veranderende vital rates op de lambda waarde
+
+We voor elke vital rate afzonderlijk de waarde variëren tussen 0 en 1.
+(Enkel de vital rates voor overleving).
+
+```{r}
+vrs <- c("Sk1", "Skh", "Sai1", "Saz1", "Saih", "Sazh", "Saw", "Sjw")
+vrval <- seq(0, 1, .1)
+# Create an empty data frame to fill in the lambda values
+sensvr <- matrix(numeric(length(vrs)*length(vrval)),
+                 ncol = length(vrs),
+                 dimnames = list(vrval, vrs))
+for (vr in vrs) {
+  vrlist <- INBO.vr
+  for (i in 1:length(vrval)) {
+    vrlist[[vr]] <- vrval[i]
+    A <- matrix(sapply(exp_popmat, eval, vrlist), nrow = 2, byrow = TRUE)
+    sensvr[i, vr] <- lambda(A)
+  }
+}
+```
+Plot met de resultaten
+
+```{r}
+sensvr %>%
+  as.data.frame %>%
+  mutate(vital_rate_value = row.names(.)) %>%
+  pivot_longer(cols = -vital_rate_value,
+               names_to = "vital_rate",
+               values_to = "lambda") %>%
+  ggplot(aes(x = vital_rate_value, y = lambda,
+             colour = vital_rate, group = vital_rate)) + geom_line() +
+  geom_hline(yintercept = 1)
+```
+
+
+
+## Stochastische sensitiviteit en elasticiteit per parameter (vital rate)
+
+
+
+
+
+
 
 ## Scenario's voor jacht
 
@@ -295,27 +425,4 @@ h2_ext <- stoch.quasi.ext(matrices = h2_mat, n0 = n0, Nx = 10, tmax = 20, maxrun
 
 
 
-
-## Stochastische sensitiviteit per parameter
-
-Voor de stochastische sensitiviteit van de matrix elementen gebruiken
-we de popbio functie stoch.sens (hierboven).
-
-Zijn we ook geïnteresseerd in de sensitiviteit van de individuele parameters die 
-de matrixelementen, dan moeten we parameters per parameter de berekening maken.
-
-Eerst een voorbeeld voor een deterministisch model
-
-
-```{r sens_param}
-Pjr <- (Sai1 * ((b * n1 * u1 * Sk1) + Saih * (1 - n1) * h * nh * uh * Skh) * Sjw) * 0.5
-Sab <- Sai1 * ((1 - h + n1 * h) * Saz1 + (1 - n1) * h * Saih * Sazh)
-```
-
-```{r popmatrix}
-matINBO <- matrix(c(Pjr,        Pjr,
-                Sab * Saw,  Sab * Saw),
-              nrow = 2, ncol = , byrow = TRUE)
-```
-```
 

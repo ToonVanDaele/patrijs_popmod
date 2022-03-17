@@ -17,7 +17,7 @@ source("functions.R")
 
 Dit Rmarkdown script is een 'maquette' voor de verwerking van de telemetriegegevens
 van Patrijs. In dit script worden telemetriegegevens gesimuleerd. Met een analoog
-script kunnen de werkelijke data ingevoerd worden.
+script kunnen later de werkelijke data ingevoerd worden.
 
 De analyse maakt een schatting van de overleving voor 1 jaar.
 In de studie zal de overleving voor kortere opeenvolgende termijnen geschat worden (winteroverleving, ...).
@@ -44,8 +44,6 @@ van het project en de laatste zender die wordt aangebracht. Het 'aanbrengen' van
 uitval omvat: uitval van de zender, verlies van de zender, migratie van het individu, (wat nog?). De uitval van de eerste dagen (eerste week) na het zenderen worden niet opgenomen in de dataset. Verlies van de zender is meestal in het begin.
   - De te schatten parameter is overleving op jaarbasis (kan ook kortere periode).
   - Overleving is verschillend voor male en female en verschilt per periode.
-
-  
 
 De simulatie is geschreven als een functie (wordt verderop ook voor de power berekeningen
 gebruikt wordt)
