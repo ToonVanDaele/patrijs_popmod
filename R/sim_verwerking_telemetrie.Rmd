@@ -27,7 +27,7 @@ Of de schatting van alle parameters in enkele analyse kan, of het beter is voor 
 De schatting van de parameters en de betrouwbaarheidsintervallen zijn de input
 voor de populatiemodellering.
 
-Voor de individuen die niet overleven moet een assumptie gemaakt worden voor de datum waarop ze gebroed zouden hebben. -> berekening van de Saw. (zie ook Bro 1999)
+<!-- Voor de individuen die niet overleven moet een assumptie gemaakt worden voor de datum waarop ze gebroed zouden hebben. -> berekening van de Saw. (zie ook Bro 1999) -->
 
 ## Simulatie van een dataset
 
