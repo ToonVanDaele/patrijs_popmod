@@ -16,16 +16,16 @@ sim_tel <- function(Sy = 0.8, n_init = 66, max_start = 50, p_loss_y = 0.1,
   plossd <- 1 - ((1 - p_loss_y)^(1/365)) # daily probability to hold the transmitter
 
   # Simulate application of transmitters (uniform distribution)
-  set.seed(13)
+  #set.seed(13)
   m_time <- round(runif(n = n_init, min = 1, max = max_start))
 
   # Simulate survival
-  set.seed(51)
+  #set.seed(51)
   s_time <- m_time + rgeom(n = n_init, prob = 1 - Sd)  # dead
   #s_time[s_time > tot_days] <- NA  # survives study
 
   # Simulate loss of transmitters / end of study
-  set.seed(99)
+  #set.seed(99)
   l_time <- m_time + rgeom(n = n_init, prob = plossd)   # loss
   l_time[l_time > tot_days] <- tot_days    # end of study
 

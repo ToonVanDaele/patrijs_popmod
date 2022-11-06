@@ -49,10 +49,10 @@ De simulatie is geschreven als een functie (wordt verderop ook voor de power ber
 gebruikt wordt)
 
 ```{r sim_param}
-Sy <- 0.8          # Overleving (Jaar)
+Sy <- 0.7          # Overleving (Jaar)
 n_init <- 66       # Totaal aantal individuen met zenders
 max_start <- 1     # Periode van start van het project en de laatste aangebrachte zender (half januari tot eind april)
-p_loss_y <- 0.0001 # Kans op verlies van de zender (Jaar)
+p_loss_y <- 0.1 # Kans op verlies van de zender (Jaar)
 tot_days <- 365  # Totale duur van het opvolgen (dagen)
 ```
 
