@@ -15,7 +15,7 @@ karakteristieken van de dataset:
   - Is er veel tijdelijke uitval? (worden zenders soms niet gevonden en later weer wel?)
   - Interval tussen opvolging (1 x week in de zomer 2 x per week)
   - Aantal dagen tussen de fases kan sterk verschillen
-  - 
+
 
 ## Mayfield method (intuitieve benadering)
 

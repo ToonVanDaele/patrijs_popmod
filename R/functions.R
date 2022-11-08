@@ -66,6 +66,7 @@ convert_to_surv <- function(m_time, s_time, l_time) {
 
 convert_to_RMark <- function(obs, m_time, s_time, l_time){
 
+  n_init <- length(m_time)
   ch <- vector(length = n_init)
   for (j in 1:n_init) {
     chL <- chD <- rep(0, length(obs))  # empty vectors

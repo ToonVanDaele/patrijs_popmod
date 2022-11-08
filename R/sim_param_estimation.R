@@ -440,3 +440,5 @@ S_kf <- (results[[1]]$results$real$estimate)^length(obs)
 S_kf_lcl <- (results[[1]]$results$real$lcl)^length(obs)
 S_kf_ucl <- (results[[1]]$results$real$ucl)^length(obs)
 
+
+
