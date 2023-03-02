@@ -2,16 +2,16 @@
 
 library(tidyverse)
 
-
 # load data
 df_det <- readRDS("./data/interim/df_det.RDS")
 df_hist <- readRDS("./data/interim/df_hist.RDS")
 
 # Check consistency
 
+unique(df_hist$Gebied)
 unique(df_det$Waarneming)
 
-# nog in te vullen!!
+# nog verder in te vullen!!
 
 
 # filter and wrangling
@@ -71,7 +71,12 @@ df_trunc <- df_det2 %>%
 df_lh <- df_mark %>%
   left_join(df_dead, by = "Ringnummer") %>%
   left_join(df_trunc, by = "Ringnummer") %>%
-  dplyr::select(Ringnummer, Geslacht, m_date, s_date, l_date)
+  dplyr::select(Ringnummer, Gebied, Geslacht, m_date, s_date, l_date)
+
+# We remove mortality within one week after ringing
+
+df_lh <- df_lh %>%
+  filter(is.na(s_date) | s_date > m_date + 7)
 
 #view(df_lh)
 
@@ -108,3 +113,7 @@ df_obs <- df_det2 %>%
   mutate(obs = Datum - startdate)
 
 saveRDS(df_obs, "./data/interim/df_obs.RDS")
+
+
+# Die direct doodgaan mogen weg. 7 dagen nemen als minimum overleving.
+

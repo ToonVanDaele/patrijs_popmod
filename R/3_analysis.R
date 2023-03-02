@@ -18,7 +18,6 @@ df_lh <- df_lh %>%
   mutate(time = ifelse(s_time2 < l_time2, s_time2, l_time2),
          event = ifelse(s_time2 < l_time2, 1, 0))   # censored = 0, dead = 1
 
-
 df_lh
 
 km_fit1 <- survfit(Surv(time, event) ~ 1, data = df_lh)
@@ -56,7 +55,7 @@ survdiff(Surv(time, event) ~ Geslacht, data = df_lh)
 
 # => geen aanwijzing dat er verschil is tussen mannelijke of vrouwelijke individuen
 
-
+# -> gebied als covariaat nemen
 
 #Prepare format for LDLDLD 'known fate model RMArk'
 
@@ -99,3 +98,16 @@ S_kf_ucl <- (results[[1]]$results$real$ucl)^length(obs)
 
 
 
+# Staggered introduction /  left censoring
+# - nog even verder lezen, maar normaal gezien corrigeerd dit voor de overldedn
+# populatie
+
+
+# 48 Roeselare   (5 door vangst overleden + 1 te weinig data)
+# 34 Middelkerke  (4 overleden door vangst)
+
+# first nest stop is einde van eerste periode
+# dat moment is verschillende per individu -> multi state known fat
+# ? wat met individuen waarvan we 1st nest datum niet kennen?
+
+# - > gemiddelde van 'first nest stop' datum - succesvolle nest 1st nest succes datum

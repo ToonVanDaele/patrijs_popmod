@@ -4,8 +4,11 @@ library(tidyverse)
 
 # Load detecties overleving
 
-df_in <- read.csv("../data/input/Detecties_overleving.csv", quote = "\"'", sep = ";")
+df_in <- read.csv("./data/input/Detecties_overleving.csv", quote = "\"'", sep = ";")
 #str(df_in)
+
+
+unique(df_in$Ringnummer)
 
 df_det <- df_in %>%
   as_tibble() %>%
@@ -14,16 +17,27 @@ df_det <- df_in %>%
          Geslacht = as.factor(Geslacht),
          Datum = as.Date(Datum))
 
-saveRDS(df_det, "../data/interim/df_det.RDS")
+saveRDS(df_det, "./data/interim/df_det.RDS")
 
 # Load life history
-df_in <- readxl::read_excel("../data/input/Samenvatting_levensloop_Eenvoudig.xlsx")
-str(df_in)
+#df_in <- readxl::read_excel("./data/input/Samenvatting_levensloop_Eenvoudig.xlsx")
+df_in_roes <- readxl::read_excel("./data/input/Samenvatting_levensloop.xlsx", sheet = "ROES")
+df_in_midd <- readxl::read_excel("./data/input/Samenvatting_levensloop.xlsx", sheet = "MIDD")
 
-df_hist <- df_in %>%
-  as_tibble %>%
+str(df_in_roes)
+str(df_in_midd)
+
+
+rqm <- function(x) ifelse(x)
+
+df_hist <- df_in_roes %>%
+  bind_rows(df_in_midd) %>%
+  filter(!is.na(Ringnummer)) %>%
+  rename(Datum_Vangst = Datum) %>%
   mutate(across(End_code:`2nd_Nest_Survival`,function(x) ifelse(x == "NA", NA, x))) %>%
   mutate(End = ifelse(End == "ALIVE", NA, End)) %>%
+  mutate_at(.vars = c("1st_Nest_Stop", "2nd_Nest_Stop", "1st_Nest_eggs", "1st_Nest_Hatched"),
+            .funs = function(x) ifelse(x == "?", NA, x)) %>%
   mutate(End = as.numeric(End),
          `1st_Nest_Stop` = as.numeric(`1st_Nest_Stop`),
          `2nd_Nest_Stop` = as.numeric(`2nd_Nest_Stop`)) %>%
@@ -49,6 +63,7 @@ df_hist <- df_in %>%
          `2nd_Nest_Hatched` = as.numeric(`2nd_Nest_Hatched`),
          `2nd_Nest_Survival` = as.numeric(`2nd_Nest_Survival`))
 
-str(df_hist)
+#str(df_hist)
 
-saveRDS(df_hist, "../data/interim/df_hist.RDS")
+saveRDS(df_hist, "./data/interim/df_hist.RDS")
+

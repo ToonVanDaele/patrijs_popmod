@@ -66,19 +66,22 @@ convert_to_surv <- function(m_time, s_time, l_time) {
 
 convert_to_RMark <- function(obs, m_time, s_time, l_time){
 
+  lastobs <- max(obs)
   n_init <- length(m_time)
   ch <- vector(length = n_init)
   for (j in 1:n_init) {
     chL <- chD <- rep(0, length(obs))  # empty vectors
     if (s_time[j] < l_time[j]) {     # case 1: dead before losing transmitter or end of study
-      chL[obs >= m_time[j]] <- 1               # observations with transmitter
-      chD[match(TRUE, obs > s_time[j])] <-  1  # dead recovery
-      if (!match(1, chD) == length(obs)) {
-        chL[(match(1, chD) + 1):length(obs)] <- 0 # individual cannot be seen after its dead
+      chL[obs >= m_time[j]] <- 1      # start observations with transmitter
+      if (lastobs > s_time[j]) {
+        chD[match(TRUE, obs > s_time[j])] <- 1 # 1st obs. is dead recovery
+        if (!match(1, chD) == length(obs)) {
+          chL[(match(1, chD) + 1):length(obs)] <- 0 # no obs. after dead recovery
+        }
       }
 
     }else{                        # case 2: individual loses transmitter or end of study
-      chL[obs > m_time[j]] <- 1   # starting observations with transmitter
+      chL[obs >= m_time[j]] <- 1   # starting observations with transmitter
       chL[obs > l_time[j]] <- 0   # observations stop when transmitter is lost
     }
     #cat(j, "\n", chL, "\n" , chD, "\n")
