@@ -27,9 +27,6 @@ df_in_midd <- readxl::read_excel("./data/input/Samenvatting_levensloop.xlsx", sh
 str(df_in_roes)
 str(df_in_midd)
 
-
-rqm <- function(x) ifelse(x)
-
 df_hist <- df_in_roes %>%
   bind_rows(df_in_midd) %>%
   filter(!is.na(Ringnummer)) %>%

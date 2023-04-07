@@ -22,8 +22,6 @@ df_det2 <- df_det %>%
   arrange(desc(Datum)) %>%
   slice(1)
 
-#  mutate(wk = strftime(Datum, format = "%V")) %>%   add week
-
 df_det2
 
 df_hist2 <- df_hist %>%
